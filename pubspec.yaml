@@ -33,6 +33,10 @@ dependencies:
   fluttertoast: ^8.2.1
   http: ^1.2.2
   google_fonts: ^5.1.0
+  qr_flutter: ^4.1.0
+  flutter_barcode_scanner: ^2.0.0
+  shared_preferences: ^2.2.0
+  intl: ^0.20.2
 
 
 

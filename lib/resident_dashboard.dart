@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'main.dart';
+import 'resident_schedule_page.dart';
 
-const String baseUrl = "https://ecokochi.pythonanywhere.com/api/"; // Global variable for base URL
+const String baseUrl = "https://ecokochi.pythonanywhere.com/api/";
 
 class ResidentDashboardPage extends StatelessWidget {
   final String token;
   final Map<String, dynamic> residentDetails;
 
-  // Constructor that takes the token and resident details
-  ResidentDashboardPage({
+  const ResidentDashboardPage({super.key, 
     required this.token,
     required this.residentDetails,
   });
@@ -33,7 +35,6 @@ class ResidentDashboardPage extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.exit_to_app, color: Colors.white),
             onPressed: () {
-              // Handle logout functionality
               _logout(context);
             },
           ),
@@ -55,7 +56,6 @@ class ResidentDashboardPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Welcome Section
               Card(
                 elevation: 5,
                 shape: RoundedRectangleBorder(
@@ -95,7 +95,6 @@ class ResidentDashboardPage extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // Quick Actions Section
               const Text(
                 'Quick Actions',
                 style: TextStyle(
@@ -107,59 +106,55 @@ class ResidentDashboardPage extends StatelessWidget {
               const SizedBox(height: 10),
               GridView.count(
                 shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(), // Disable GridView scrolling
+                physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: 2,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
                 children: [
                   _buildActionButton(
-                    icon: Icons.calendar_today,
-                    label: 'Schedule',
-                    onPressed: () {
-                      // Navigate to garbage collection schedule
-                    },
-                  ),
+                  icon: Icons.calendar_today,
+                  label: 'Schedule',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ResidentSchedulePage(token: token),
+                      ),
+                    );
+                  },
+                ),
                   _buildActionButton(
                     icon: Icons.qr_code,
                     label: 'QR Code',
                     onPressed: () {
-                      // Navigate to QR code page
+                      _fetchQRCode(context);
                     },
                   ),
                   _buildActionButton(
                     icon: Icons.report,
                     label: 'Report Issue',
-                    onPressed: () {
-                      // Navigate to report issue page
-                    },
+                    onPressed: () {},
                   ),
                   _buildActionButton(
                     icon: Icons.eco,
                     label: 'Eco Tips',
-                    onPressed: () {
-                      // Navigate to eco tips page
-                    },
+                    onPressed: () {},
                   ),
                 ],
               ),
               const SizedBox(height: 20),
-
-              
             ],
           ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // Add functionality for quick action
-        },
+        onPressed: () {},
         backgroundColor: Colors.green[800],
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
 
-  // Custom Action Button Widget
   Widget _buildActionButton({
     required IconData icon,
     required String label,
@@ -195,35 +190,66 @@ class ResidentDashboardPage extends StatelessWidget {
     );
   }
 
-  // Custom Activity Tile Widget
-  Widget _buildActivityTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-  }) {
-    return Card(
-      elevation: 3,
-      margin: const EdgeInsets.symmetric(vertical: 5),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: ListTile(
-        leading: Icon(icon, color: color),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.green[900],
-          ),
-        ),
-        subtitle: Text(subtitle),
-      ),
-    );
+  Future<void> _fetchQRCode(BuildContext context) async {
+    const String qrCodeUrl = "${baseUrl}resident/qr-code/";
+
+    try {
+      final response = await http.get(
+        Uri.parse(qrCodeUrl),
+        headers: {
+          "Authorization": "Token $token",
+          "Content-Type": "application/json",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        String qrCodeString = responseData['qr_code_string'];
+
+        // Show the QR code in a dialog
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text("Resident QR Code"),
+              content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                QrImageView(  // Change QrImage to QrImageView
+                  data: qrCodeString,
+                  version: QrVersions.auto,
+                  size: 200.0,
+                ),
+                const SizedBox(height: 10),
+                SelectableText(
+                  qrCodeString,
+                  style: TextStyle(fontSize: 16, color: Colors.green[800]),
+                ),
+              ],
+            ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text("Close"),
+                ),
+              ],
+            );
+          },
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to fetch QR Code: ${response.statusCode}")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("An error occurred: $e")),
+      );
+    }
   }
 
-  // Logout function that sends the POST request and navigates back to the login screen
   Future<void> _logout(BuildContext context) async {
     const String logoutUrl = "${baseUrl}garbage-collector/logout/";
 
@@ -231,7 +257,7 @@ class ResidentDashboardPage extends StatelessWidget {
       final response = await http.post(
         Uri.parse(logoutUrl),
         headers: {
-          "Authorization": "Token $token", // Using the passed token for authentication
+          "Authorization": "Token $token",
           "Content-Type": "application/json",
         },
       );
@@ -239,7 +265,7 @@ class ResidentDashboardPage extends StatelessWidget {
       if (response.statusCode == 200) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => WelcomeScreen()),
+          MaterialPageRoute(builder: (context) => const WelcomeScreen()),
         );
 
         ScaffoldMessenger.of(context).showSnackBar(
