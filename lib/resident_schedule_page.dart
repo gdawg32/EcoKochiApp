@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 
 const String baseUrl = "https://ecokochi.pythonanywhere.com/api/";
 
@@ -14,22 +17,22 @@ class ResidentSchedulePage extends StatefulWidget {
 }
 
 class _ResidentSchedulePageState extends State<ResidentSchedulePage> {
-  List<dynamic> schedules = [];
-  bool isLoading = true;
-  String? errorMessage;
+  List<dynamic> _assignments = [];
+  bool _isLoading = true;
+  String _errorMessage = "";
 
   @override
   void initState() {
     super.initState();
-    fetchSchedule();
+    fetchAssignments();
   }
 
-  Future<void> fetchSchedule() async {
-    const String scheduleUrl = "${baseUrl}resident/schedule/";
+  Future<void> fetchAssignments() async {
+    final String apiUrl = "${baseUrl}resident/assignments/";
 
     try {
       final response = await http.get(
-        Uri.parse(scheduleUrl),
+        Uri.parse(apiUrl),
         headers: {
           "Authorization": "Token ${widget.token}",
           "Content-Type": "application/json",
@@ -38,19 +41,19 @@ class _ResidentSchedulePageState extends State<ResidentSchedulePage> {
 
       if (response.statusCode == 200) {
         setState(() {
-          schedules = json.decode(response.body);
-          isLoading = false;
+          _assignments = jsonDecode(response.body);
+          _isLoading = false;
         });
       } else {
         setState(() {
-          errorMessage = "Failed to load schedule.";
-          isLoading = false;
+          _errorMessage = "Failed to load assignments. (${response.statusCode})";
+          _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        errorMessage = "An error occurred: $e";
-        isLoading = false;
+        _errorMessage = "An error occurred: $e";
+        _isLoading = false;
       });
     }
   }
@@ -59,41 +62,60 @@ class _ResidentSchedulePageState extends State<ResidentSchedulePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Waste Collection Schedule"),
+        title: const Text("Your Collection Schedule"),
         backgroundColor: Colors.green[800],
       ),
-      body: isLoading
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : errorMessage != null
-              ? Center(child: Text(errorMessage!, style: const TextStyle(color: Colors.red)))
-              : schedules.isEmpty
-                  ? const Center(child: Text("No schedule available."))
+          : _errorMessage.isNotEmpty
+              ? Center(child: Text(_errorMessage))
+              : _assignments.isEmpty
+                  ? const Center(child: Text("No collection assigned yet."))
                   : ListView.builder(
-                      itemCount: schedules.length,
+                      itemCount: _assignments.length,
                       itemBuilder: (context, index) {
-                        final schedule = schedules[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                          elevation: 4,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: ListTile(
-                            leading: Icon(Icons.calendar_today, color: Colors.green[800]),
-                            title: Text(
-                              "${schedule['collection_day']}",
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text(
-                              "Time: ${schedule['start_time']} - ${schedule['end_time']}",
-                              style: TextStyle(color: Colors.green[800]),
-                            ),
-                            trailing: schedule['active']
-                                ? const Icon(Icons.check_circle, color: Colors.green)
-                                : const Icon(Icons.cancel, color: Colors.red),
-                          ),
-                        );
-                      },
+  final assignment = _assignments[index];
+  final rawDate = assignment['date'];
+  final formattedDate = DateFormat.yMMMMd().format(DateTime.parse(rawDate));
+  final phone = assignment['collector_phone'];
+
+  return Card(
+    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    elevation: 3,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    child: ListTile(
+      leading: const Icon(Icons.calendar_today, color: Colors.green),
+      title: Text("Collection Date: $formattedDate"),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Collector: ${assignment['collector_name']}"),
+          Row(
+            children: [
+              Text("Phone: $phone"),
+              IconButton(
+                icon: const Icon(Icons.call, color: Colors.green),
+                tooltip: 'Call Collector',
+                onPressed: () async {
+                  final Uri uri = Uri(scheme: 'tel', path: phone);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Unable to open dialer')),
+                    );
+                  }
+                },
+              )
+
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
                     ),
     );
   }

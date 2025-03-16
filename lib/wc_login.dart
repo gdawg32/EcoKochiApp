@@ -27,7 +27,7 @@ class _WasteCollectorLoginPageState extends State<WasteCollectorLoginPage> {
       _errorMessage = "";
     });
 
-    const String apiUrl = "${baseUrl}garbage-collector/login/";
+    final String apiUrl = "${baseUrl}garbage-collector/login/";
 
     try {
       final response = await http.post(

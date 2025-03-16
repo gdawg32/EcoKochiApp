@@ -6,7 +6,7 @@ import 'resident_dashboard.dart';
 const String baseUrl = "https://ecokochi.pythonanywhere.com/api/";
 
 class ResidentLoginSignupPage extends StatelessWidget {
-  const ResidentLoginSignupPage({super.key});
+  const ResidentLoginSignupPage({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +38,7 @@ class ResidentLoginSignupPage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => const ResidentLoginPage()),
+                        builder: (context) => ResidentLoginPage()),
                   );
                 },
               ),
@@ -49,7 +49,7 @@ class ResidentLoginSignupPage extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => const ResidentSignupPage()),
+                        builder: (context) => ResidentSignupPage()),
                   );
                 },
               ),
@@ -62,7 +62,7 @@ class ResidentLoginSignupPage extends StatelessWidget {
 }
 
 class ResidentLoginPage extends StatefulWidget {
-  const ResidentLoginPage({super.key});
+  const ResidentLoginPage({Key? key}) : super(key: key);
 
   @override
   _ResidentLoginPageState createState() => _ResidentLoginPageState();
@@ -75,7 +75,7 @@ class _ResidentLoginPageState extends State<ResidentLoginPage> {
   String? _errorMessage;
 
   Future<void> loginResident() async {
-    const String apiUrl = "${baseUrl}resident/login/";
+    final String apiUrl = "${baseUrl}resident/login/";
 
     setState(() {
       _isLoading = true;
@@ -184,7 +184,7 @@ class _ResidentLoginPageState extends State<ResidentLoginPage> {
 }
 
 class ResidentSignupPage extends StatefulWidget {
-  const ResidentSignupPage({super.key});
+  const ResidentSignupPage({Key? key}) : super(key: key);
 
   @override
   _ResidentSignupPageState createState() => _ResidentSignupPageState();
@@ -373,7 +373,8 @@ class ModernButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;
 
-  const ModernButton({super.key, required this.text, required this.onPressed});
+  const ModernButton({Key? key, required this.text, required this.onPressed})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -401,13 +402,13 @@ class ModernTextField extends StatelessWidget {
   final TextInputType? keyboardType;
 
   const ModernTextField({
-    super.key,
+    Key? key,
     required this.controller,
     required this.labelText,
     this.obscureText = false,
     this.prefixIcon,
     this.keyboardType,
-  });
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {

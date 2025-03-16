@@ -37,6 +37,7 @@ dependencies:
   flutter_barcode_scanner: ^2.0.0
   shared_preferences: ^2.2.0
   intl: ^0.20.2
+  url_launcher: ^6.3.1
 
 
 

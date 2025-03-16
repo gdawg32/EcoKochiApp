@@ -11,7 +11,7 @@ class ResidentDashboardPage extends StatelessWidget {
   final String token;
   final Map<String, dynamic> residentDetails;
 
-  const ResidentDashboardPage({super.key, 
+  ResidentDashboardPage({
     required this.token,
     required this.residentDetails,
   });
@@ -265,7 +265,7 @@ class ResidentDashboardPage extends StatelessWidget {
       if (response.statusCode == 200) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+          MaterialPageRoute(builder: (context) => WelcomeScreen()),
         );
 
         ScaffoldMessenger.of(context).showSnackBar(

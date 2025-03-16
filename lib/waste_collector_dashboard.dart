@@ -30,9 +30,10 @@ class WasteCollectorDashboard extends StatefulWidget {
 }
 
 class _WasteCollectorDashboardState extends State<WasteCollectorDashboard> with SingleTickerProviderStateMixin {
-  List<dynamic> _schedules = [];
   List<dynamic> _collections = [];
   DateTime? _selectedDate;
+  List<dynamic> _assignments = [];
+  bool _isLoadingAssignments = false;
   bool _isLoading = true;
   bool _isLoadingCollections = false;
   String _errorMessage = "";
@@ -51,9 +52,9 @@ class _WasteCollectorDashboardState extends State<WasteCollectorDashboard> with 
   void initState() {
     super.initState();
     // Initialize the TabController here
-    _tabController = TabController(length: 2, vsync: this);
-    fetchSchedules();
+    _tabController = TabController(length: 3, vsync: this);
     fetchCollections();
+    fetchAssignments();
     _searchController.addListener(_filterCollections);
   }
 
@@ -88,73 +89,88 @@ class _WasteCollectorDashboardState extends State<WasteCollectorDashboard> with 
     _totalHaz = _collections.fold(0.0, (sum, item) => sum + (double.tryParse(item['hazardous_waste'].toString()) ?? 0.0));
   }
 
-  Future<void> fetchSchedules() async {
-    const String apiUrl = "${baseUrl}schedules/";
-
-    try {
-      final response = await http.get(
-        Uri.parse(apiUrl),
-        headers: {"Authorization": "Token ${widget.token}"},
-      );
-
-      if (response.statusCode == 200) {
-        setState(() {
-          _schedules = jsonDecode(response.body);
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage = "Failed to fetch schedules.";
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = "An error occurred: $e";
-        _isLoading = false;
-      });
-    }
-  }
 
   Future<void> fetchCollections({DateTime? date}) async {
-    setState(() {
-      _isLoadingCollections = true;
-    });
+  setState(() {
+    _isLoadingCollections = true;
+  });
 
-    String url = "${baseUrl}collector/collections/";
-    if (date != null) {
-      final formatted = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
-      url += "?date=$formatted";
-    }
-
-    try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {"Authorization": "Token ${widget.token}"},
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          _collections = data;
-          _filteredCollections = data;
-          _calculateTotals();
-        });
-      } else {
-        setState(() {
-          _errorMessage = "Failed to fetch collections.";
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = "Error fetching collections: $e";
-      });
-    } finally {
-      setState(() {
-        _isLoadingCollections = false;
-      });
-    }
+  String url = "${baseUrl}collector/collections/";
+  if (date != null) {
+    final formatted = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+    url += "?date=$formatted";
   }
+
+  try {
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {"Authorization": "Token ${widget.token}"},
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      setState(() {
+        _collections = data;
+        _filteredCollections = data;
+        _calculateTotals();
+        _isLoading = false; // This line was missing
+      });
+    } else {
+      setState(() {
+        _errorMessage = "Failed to fetch collections.";
+        _isLoading = false; // This line was missing
+      });
+    }
+  } catch (e) {
+    setState(() {
+      _errorMessage = "Error fetching collections: $e";
+      _isLoading = false; // This line was missing
+    });
+  } finally {
+    setState(() {
+      _isLoadingCollections = false;
+    });
+  }
+}
+
+Future<void> fetchAssignments({DateTime? date}) async {
+  setState(() {
+    _isLoadingAssignments = true;
+  });
+
+  String url = "${baseUrl}collector/assignments/";
+  if (date != null) {
+    final formatted = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+    url += "?date=$formatted";
+  }
+
+  try {
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {"Authorization": "Token ${widget.token}"},
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      setState(() {
+        _assignments = data;
+      });
+    } else {
+      setState(() {
+        _errorMessage = "Failed to fetch assignments.";
+      });
+    }
+  } catch (e) {
+    setState(() {
+      _errorMessage = "Error fetching assignments: $e";
+    });
+  } finally {
+    setState(() {
+      _isLoadingAssignments = false;
+    });
+  }
+}
+
 
   Future<void> pickDateAndFetchCollections() async {
     final DateTime? picked = await showDatePicker(
@@ -198,7 +214,7 @@ class _WasteCollectorDashboardState extends State<WasteCollectorDashboard> with 
   }
 
   Future<void> verifyQRCode(String qrCode) async {
-    const String apiUrl = "${baseUrl}garbage-collector/waste-collections/verify_qr/";
+    final String apiUrl = "${baseUrl}garbage-collector/waste-collections/verify_qr/";
 
     try {
       final response = await http.post(
@@ -427,37 +443,47 @@ class _WasteCollectorDashboardState extends State<WasteCollectorDashboard> with 
         ),
         backgroundColor: AppColors.primary,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
-            onPressed: scanQRCode,
-            tooltip: "Scan Resident QR Code",
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => fetchCollections(date: _selectedDate),
-            tooltip: "Refresh Data",
-          ),
-        ],
+  IconButton(
+    icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
+    onPressed: scanQRCode,
+    tooltip: "Scan Resident QR Code",
+  ),
+  IconButton(
+    icon: const Icon(Icons.refresh, color: Colors.white),
+    onPressed: () {
+      fetchCollections(date: _selectedDate);
+      fetchAssignments(date: _selectedDate);
+    },
+    tooltip: "Refresh Data",
+  ),
+],
         bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          tabs: [
-            Tab(
-              icon: const Icon(Icons.list, color: Colors.white),
-              child: Text(
-                "Collections",
-                style: GoogleFonts.poppins(color: Colors.white),
-              ),
-            ),
-            Tab(
-              icon: const Icon(Icons.add_circle_outline, color: Colors.white),
-              child: Text(
-                "Log Waste",
-                style: GoogleFonts.poppins(color: Colors.white),
-              ),
-            ),
-          ],
-        ),
+  controller: _tabController,
+  indicatorColor: Colors.white,
+  tabs: [
+    Tab(
+      icon: const Icon(Icons.list, color: Colors.white),
+      child: Text(
+        "Collections",
+        style: GoogleFonts.poppins(color: Colors.white),
+      ),
+    ),
+    Tab(
+      icon: const Icon(Icons.assignment, color: Colors.white),
+      child: Text(
+        "Assignments",
+        style: GoogleFonts.poppins(color: Colors.white),
+      ),
+    ),
+    Tab(
+      icon: const Icon(Icons.add_circle_outline, color: Colors.white),
+      child: Text(
+        "Log Waste",
+        style: GoogleFonts.poppins(color: Colors.white),
+      ),
+    ),
+  ],
+),
       ),
       body: _isLoading
           ? const Center(
@@ -487,7 +513,6 @@ class _WasteCollectorDashboardState extends State<WasteCollectorDashboard> with 
                             _errorMessage = "";
                             _isLoading = true;
                           });
-                          fetchSchedules();
                           fetchCollections();
                         },
                         style: ElevatedButton.styleFrom(
@@ -584,22 +609,25 @@ class _WasteCollectorDashboardState extends State<WasteCollectorDashboard> with 
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                      Text(
-                                        "${_filteredCollections.length} collections",
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 14,
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
+                                      
                                     ],
                                   ),
                                   const SizedBox(height: 16),
-                                  Row(
+                                  Column(
                                     children: [
-                                      _statCard("Bio", _totalBio.toStringAsFixed(1), "kg", Colors.green[100]!, Colors.green),
-                                      _statCard("Rec", _totalRec.toStringAsFixed(1), "kg", Colors.blue[100]!, Colors.blue),
-                                      _statCard("Non-Rec", _totalNonRec.toStringAsFixed(1), "kg", Colors.orange[100]!, Colors.orange),
-                                      _statCard("Haz", _totalHaz.toStringAsFixed(1), "kg", Colors.red[100]!, Colors.red),
+                                      Row(
+                                        children: [
+                                          _statCard("Bio", _totalBio.toStringAsFixed(1), "kg", Colors.green[100]!, Colors.green),
+                                          _statCard("Recylable", _totalRec.toStringAsFixed(1), "kg", Colors.blue[100]!, Colors.blue),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          _statCard("Non-Recylable", _totalNonRec.toStringAsFixed(1), "kg", Colors.orange[100]!, Colors.orange),
+                                          _statCard("Hazardous", _totalHaz.toStringAsFixed(1), "kg", Colors.red[100]!, Colors.red),
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 ],
@@ -804,6 +832,186 @@ class _WasteCollectorDashboardState extends State<WasteCollectorDashboard> with 
                       ),
                     ),
                     
+                  // Assignments Tab (new)
+    RefreshIndicator(
+      onRefresh: () => fetchAssignments(date: _selectedDate),
+      color: AppColors.primary,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Date filter
+            Row(
+              children: [
+                const Spacer(),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _selectedDate ?? DateTime.now(),
+                        firstDate: DateTime(2024),
+                        lastDate: DateTime.now().add(const Duration(days: 30)),
+                        builder: (context, child) {
+                          return Theme(
+                            data: Theme.of(context).copyWith(
+                              colorScheme: const ColorScheme.light(
+                                primary: AppColors.primary,
+                                onPrimary: Colors.white,
+                                surface: AppColors.cardBg,
+                                onSurface: AppColors.textPrimary,
+                              ),
+                            ),
+                            child: child!,
+                          );
+                        },
+                      );
+                      
+                      if (picked != null) {
+                        setState(() => _selectedDate = picked);
+                        fetchAssignments(date: picked);
+                      }
+                    },
+                    icon: const Icon(Icons.date_range),
+                    label: Text(
+                      _selectedDate == null
+                          ? "Filter Date"
+                          : DateFormat('dd/MM/yy').format(_selectedDate!),
+                      style: GoogleFonts.poppins(),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            Text(
+              "Assigned Residents",
+              style: GoogleFonts.poppins(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            
+            // Assignments List
+            _isLoadingAssignments
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32.0),
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                      ),
+                    ),
+                  )
+                : _assignments.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32.0),
+                          child: Column(
+                            children: [
+                              const Icon(
+                                Icons.assignment_outlined,
+                                size: 60,
+                                color: AppColors.textSecondary,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                "No assignments found for this date",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _assignments.length,
+                        itemBuilder: (context, index) {
+                          final assignment = _assignments[index];
+                          print("Assignment: $assignment");
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.grey.withOpacity(0.1),
+                                  blurRadius: 5,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(16),
+                              leading: CircleAvatar(
+                                backgroundColor: AppColors.accent,
+                                child: Text(
+                                  assignment['house_number']?.toString() ?? 'N/A',
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              ),
+                              title: Text(
+                                assignment['name'] ?? 'Unknown Resident',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Address: ${assignment['address'] ?? 'Not available'}",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Text(
+                                    "Phone: ${assignment['phone'] ?? 'Not available'}",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              trailing: ElevatedButton.icon(
+                                onPressed: () {
+                                  scanQRCode();
+                                },
+                                icon: const Icon(Icons.assignment_turned_in, color: Colors.white),
+                                label: const Text("Collect", style: TextStyle(color: Colors.white)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ],
+        ),
+      ),
+    ),
+
                     // Log Waste Tab
                     SingleChildScrollView(
                       padding: const EdgeInsets.all(16.0),
